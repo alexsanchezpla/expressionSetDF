@@ -21,26 +21,66 @@ setClass("expressionSetDF",
 #' Constructor para expressionSetDF
 #'
 #' @param exprs Data frame con datos de expresión genética.
-#' @param phenoData Data frame con información fenotípica.
-#' @param featureData Data frame con información de características.
+#' @param phenoData Data frame con información fenotípica (opcional).
+#' @param featureData Data frame con información de características (opcional).
 #' @return Un objeto de clase expressionSetDF.
 #'
 #' @examples
-#' es_df <- expressionSetDF(exprs = data.frame(A = c(1, 2, 3), B = c(4, 5, 6)),
-#'                          phenoData = data.frame(Sample = c("S1", "S2", "S3")),
-#'                          featureData = data.frame(Gene = c("G1", "G2")))
-#'
+#' datos <- data.frame(A = c(1, 2, 3, 7), B = c(4, 5, 6, 0), 
+#'             C=c("C", "C", "T", "T"))
+#' sampleNames <- c("S1", "S2", "S3", "S4")
+#' varNames <- c("G1", "G2", "Group")
+#' rownames(datos) <- sampleNames
+#' colnames(datos) <- varNames
+#' phenoDat <-  data.frame(sampleGrp = c(rep("H", 2), rep("A", 2)))
+#' rownames(phenoDat) <- rownames(datos)
+#' featureDat <- data.frame(varGrp= c(rep("c", 2), "n"))
+#' rownames(featureDat) <- colnames(datos)
+#' es_df0 <- expressionSetDF(exprs = datos,
+#'                        phenoData = NULL,
+#'                        featureData = NULL)
+#' es_df <- expressionSetDF(exprs = datos,
+#'                       phenoData = phenoDat,
+#'                       featureData = featureDat)
 #' @rdname expressionSetDF
 #' @export
 expressionSetDF <- function(exprs = data.frame(),
-                            phenoData = data.frame(),
-                            featureData = data.frame())   {
+                            phenoData = NULL,
+                            featureData = NULL)   {
+  # Validar que los nombres de las filas de "exprs" coincidan con "phenoData"
+  if (!is.null(phenoData)) {
+    if (!identical(rownames(exprs), rownames(phenoData))) {
+      stop("The row names of 'exprs' must match the 'Sample' column in 'phenoData'.")
+    }
+  }
+  
+  # Validar que los nombres de las columnas de "exprs" coincidan con las filas de "featureData"
+  if (!is.null(featureData)) {
+    if (!identical(colnames(exprs), rownames(featureData))) {
+      stop("The column names of 'exprs' must match the row names of 'featureData'.")
+    }
+  }
+  
+  # Si phenoData es NULL, crearlo con los nombres de las filas de "exprs"
+  if (is.null(phenoData)) {
+    phenoData <- data.frame(Sample = rownames(exprs))
+    rownames(phenoData) <- rownames(exprs)
+  }
+
+  
+  # Si featureData es NULL, crearlo con los nombres de las columnas de "exprs"
+  if (is.null(featureData)) {
+    featureData <- data.frame(varNames = colnames(exprs))
+    rownames(featureData) <- colnames(exprs)
+  }
+  
   es <- methods::new("expressionSetDF",
-            exprs = exprs,
-            phenoData = phenoData,
-            featureData = featureData)
+                     exprs = exprs,
+                     phenoData = phenoData,
+                     featureData = featureData)
   return(es)
 }
+
 
 #' Método para acceder al campo "exprs"
 #'
@@ -98,14 +138,27 @@ featureData.eDF <- function(object) {
 #' @rdname expressionSetDF
 #' @export
 `[.expressionSetDF` <- function(x, i, j, drop = FALSE, ...) {
+  # Validar que las condiciones de filas y columnas no rompan las condiciones
+  if (!is.null(x@phenoData)) {
+    if (!all(rownames(x@exprs[i, ]) == x@phenoData$Sample[i])) {
+      stop("Subsetting breaks the condition: row names of 'exprs' must match 'Sample' column in 'phenoData'.")
+    }
+  }
+  
+  if (!is.null(x@featureData)) {
+    if (!all(colnames(x@exprs[, j, drop = drop]) == rownames(x@featureData))) {
+      stop("Subsetting breaks the condition: column names of 'exprs' must match row names in 'featureData'.")
+    }
+  }
+  
   exprs_subset <- x@exprs[i, j, drop = drop]
   phenoData_subset <- x@phenoData[i, , drop = FALSE]
-  featureData_subset <- x@featureData[j, , drop = FALSE]
-
+  featureData_subset <- x@featureData
+  
   es_subset <- expressionSetDF(exprs = exprs_subset,
                                phenoData = phenoData_subset,
                                featureData = featureData_subset)
-
+  
   return(es_subset)
 }
 
@@ -122,19 +175,23 @@ featureData.eDF <- function(object) {
 #' @export
 filterColumns.eDF <- function(object, condition) {
   condition_expr <- rlang::parse_expr(condition)
-
+  
   # Evaluar la condición en cada columna
   col_indices <- sapply(object@exprs, function(col) eval(condition_expr, envir = list(. = col)))
-
+  
+  # Validar que las columnas cumplen con la condición
+  if (!identical(names(col_indices), colnames(object@exprs))) {
+    stop("Filtering columns breaks the condition: column names of 'exprs' must match row names in 'featureData'.")
+  }
+  
   # Seleccionar las columnas que cumplen con la condición
   exprs_filtered <- object@exprs[, col_indices, drop = FALSE]
-  featureData_filtered <- object@featureData[, col_indices, drop = FALSE]
-
-  # Crear un nuevo objeto ExpressionSetDF con las columnas filtradas
+  featureData_filtered <- object@featureData
+  
   es_filtered <- expressionSetDF(exprs = exprs_filtered,
                                  phenoData = object@phenoData,
                                  featureData = featureData_filtered)
-
+  
   return(es_filtered)
 }
 
@@ -151,22 +208,26 @@ filterColumns.eDF <- function(object, condition) {
 #' @export
 filterRows.eDF <- function(object, condition) {
   condition_expr <- rlang::parse_expr(condition)
-
+  
   # Evaluar la condición en cada fila
   row_indices <- sapply(1:nrow(object@exprs), function(row_idx) {
     eval(condition_expr, envir = list(. = object@exprs[row_idx, , drop = FALSE]))
   })
-
+  
+  # Validar que las filas cumplen con la condición
+  if (!identical(row_indices, seq_len(nrow(object@exprs)))) {
+    stop("Filtering rows breaks the condition: row names of 'exprs' must match 'Sample' column in 'phenoData'.")
+  }
+  
   # Seleccionar las filas que cumplen con la condición
   exprs_filtered <- object@exprs[row_indices, , drop = FALSE]
-  phenoData_filtered <- object@phenoData[row_indices, , drop = FALSE]
+  phenoData_filtered <- object@phenoData
   featureData_filtered <- object@featureData
-
-  # Crear un nuevo objeto ExpressionSetDF con las filas filtradas
+  
   es_filtered <- expressionSetDF(exprs = exprs_filtered,
                                  phenoData = phenoData_filtered,
                                  featureData = featureData_filtered)
-
+  
   return(es_filtered)
 }
 
