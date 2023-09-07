@@ -170,3 +170,76 @@ filterRows.eDF <- function(object, condition) {
   return(es_filtered)
 }
 
+#' MultMerge2
+#'
+#' Combina varios data frames en un único data frame, 
+#' manteniendo todas las filas y columnas únicas de cada uno.
+#'
+#' @param lst Una lista de data frames que se fusionarán.
+#' @param all.x Si TRUE, incluir todas las filas de los data frames en la lista original.
+#' @param all.y Si TRUE, incluir todas las filas de los data frames en la lista nueva.
+#' @param by Nombre de la columna por la que se unirán los data frames (opcional).
+#'
+#' @return Un nuevo data frame fusionado.
+#'
+#' @examples
+#' Merge data frames keeping all rows from all datasets
+#' df1 <- data.frame(matrix(rnorm(20), nrow=10))
+#' df2 <- data.frame(min=letters[1:8], may=LETTERS[1:8])
+#' dfList <- list(df1, df2)
+#' MultMerge2(dfList)
+#' 
+#' ' Merge data frames keeping ONLY COMMON rows to all datasets
+#' df1 <- data.frame(ID = 1:10, Value = runif(10))
+#' df2 <- data.frame(ID = 6:15, Value = runif(10))
+#' df3 <- data.frame(ID = 1:10, Value = runif(10))
+#' dfList <- list(df1, df2, df3)
+#' MultMerge2(dfList, all.x = FALSE, all.y = FALSE, by = "ID")
+#'
+#' @import DescTools
+#'
+#' @export
+MultMerge2 <- function (lst, all.x = TRUE, all.y = TRUE, by = NULL) 
+{
+  # lst <- list(...) # The original version had "..." instead of "list" as argument
+  if (length(lst) == 1) 
+    return(lst[[1]])
+  if (!is.null(by)) {
+    for (i in seq_along(lst)) {
+      rownames(lst[[i]]) <- lst[[i]][[by]]
+      lst[[i]][by] <- NULL
+    }
+  }
+  unames <- DescTools::SplitAt(make.unique(unlist(lapply(lst, colnames)), 
+                                           sep = "."), 
+                               cumsum(sapply(utils::head(lst, -1), ncol)) + 1)
+  for (i in seq_along(unames)) colnames(lst[[i]]) <- unames[[i]]
+  res <- Reduce(function(y, z) merge(y, z, all.x = all.x, all.y = all.x, sort=FALSE), 
+                lapply(lst, function(x) data.frame(x, rn = row.names(x))))
+  rownames(res) <- res$rn
+  res$rn <- NULL
+  seq_ord <- function(xlst) {
+    jj <- character(0)
+    for (i in seq_along(xlst)) {
+      jj <- c(jj, setdiff(xlst[[i]], jj))
+    }
+    return(jj)
+  }
+  ord <- seq_ord(lapply(lst, rownames))
+  res[ord, ]
+  if (!is.null(by)) {
+    res <- data.frame(row.names(res), res)
+    colnames(res)[1] <- by
+    rownames(res) <- c()
+  }
+  return(res)
+}
+
+
+### MODIFICACIONS
+# PhenoData i FeatureData han de tenir com noms de files
+#     els noms de les files i de les columnes de exprs respectivament
+
+# Revisar els filtres de forma que si cap fila o columna 
+#     compleix la condició retorni NULL pero no un error
+

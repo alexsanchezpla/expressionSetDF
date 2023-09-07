@@ -11,7 +11,9 @@ Description: This package provides an implementation of a class similar to Expre
 License: Artistic-2.0
 Imports: 
   methods,
-  rlang
+  rlang,
+  DescTools,
+  utils
 Suggests: 
     knitr,
     rmarkdown,
