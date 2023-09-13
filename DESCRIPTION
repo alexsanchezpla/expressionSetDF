@@ -2,23 +2,15 @@ Package: expressionSetDF
 Type: Package
 Title: A simple Bioconductor ExpressionSet-like based on data frames
 Version: 0.1.0
-Depends: R (>= 4.3.0)
+Depends: R (>= 4.2.0)
 Author: Alex Sanchez
-Maintainer: The package maintainer <asanchez@ub.edu>
+Maintainer: Alex Sanchez Pla <asanchez@ub.edu>
 Description: This package provides an implementation of a class similar to ExpressionSet
     The main difference lies in the fact that the "exprs" field is based on a data.frame, instead of a matrix.
     Besides this there is a phenoData and a featureData slots, both data frames as well.  
 License: Artistic-2.0
 Imports: 
-  methods,
-  rlang,
-  DescTools,
-  utils
-Suggests: 
-    knitr,
-    rmarkdown,
-    testthat (>= 3.0.0)
-VignetteBuilder: knitr
+  methods
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3

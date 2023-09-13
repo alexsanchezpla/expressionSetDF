@@ -1,0 +1,88 @@
+---
+title: "The ExpressionSetDF class"
+author: "Alex Sanchez"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc : TRUE
+vignette: >
+  %\VignetteIndexEntry{The ExpressionSetDF class}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+
+# Introduction
+
+The ExpressionSetDF class has been created to facilitate the combined use of data and metadata for both, samples and variables, in the same style as can be done with Bioconductor `ExpressionSet` or `SummarizedExperiment` classes.
+
+The main difference is that the Slot "Exprs" (we have kept the name) is a data frame, thus allowing to have variable of distinct types.
+
+
+# Creating an `expressionSetDF` object
+
+```{r}
+require(expressionSetDF)
+datos <- data.frame(A = c(1, 2, 3, 7), B = c(4, 5, 6, 0),
+            C=c("C", "C", "T", "T"))
+sampleNames <- c("S1", "S2", "S3", "S4")
+varNames <- c("G1", "G2", "Group")
+rownames(datos) <- sampleNames
+colnames(datos) <- varNames
+phenoDat <-  data.frame(sampleGrp = c(rep("H", 2), rep("A", 2)))
+rownames(phenoDat) <- rownames(datos)
+featureDat <- data.frame(varGrp= c(rep("c", 2), "n"))
+rownames(featureDat) <- colnames(datos)
+es_df0 <- expressionSetDF(exprs = datos,
+                       phenoData = NULL,
+                       featureData = NULL)
+show(es_df0)
+es_df <- expressionSetDF(exprs = datos,
+                      phenoData = phenoDat,
+                      featureData = featureDat)
+show(es_df)
+```
+
+
+# Accessing the slots
+
+Methods, `exprs.eDF`, `phenoData.eDF` and `featureData.eDF` provide access to the corresponding slots so that they don't need to be accessed directly:
+
+```{r}
+exprs.eDF(es_df)
+phenoData.eDF(es_df)
+featureData.eDF(es_df)
+```
+
+# Subsetting
+
+A subsetting method has been defined through the standard brackets system:
+
+```{r}
+(es_colset <- es_df[1:2,])
+(es_rowset <- es_df[,1:2])
+```
+
+
+## Reordering the slots
+
+Subsetting can also be used to re-order the data.
+
+```{r}
+
+revOrder<- order(rownames(exprs.eDF
+                          (es_df)), decreasing=TRUE)
+sorted_es <- es_df[revOrder,]
+sorted_es
+```
+
